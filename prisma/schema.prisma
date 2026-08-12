@@ -1,0 +1,439 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String    @unique
+  password      String?
+  image         String?
+  role          UserRole  @default(USER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  accounts            Account[]
+  sessions            Session[]
+  workspaceMembers    WorkspaceMember[]
+  createdWorkspaces   Workspace[]       @relation("WorkspaceCreator")
+  createdSpaces       Space[]           @relation("SpaceCreator")
+  createdLists        List[]            @relation("ListCreator")
+  createdTasks        Task[]            @relation("TaskCreator")
+  assignedTasks       Task[]            @relation("TaskAssignee")
+  taskComments        TaskComment[]
+  sharesGiven         TaskShare[] @relation("TaskSharesSharedBy")
+  sharesReceived      TaskShare[] @relation("TaskSharesReceivedBy")
+  taskAttachments     TaskAttachment[]
+  timeEntries         TimeEntry[]
+  goals               Goal[]
+  documents           Document[]
+  documentFolders     DocumentFolder[]
+  notifications       Notification[]
+  activities          Activity[]
+  invitationsSent     Invitation[]    @relation("InvitationsByUser")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.String
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model Workspace {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String   @db.ObjectId
+
+  // Relationships
+  createdBy User              @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  members   WorkspaceMember[]
+  spaces    Space[]
+  goals     Goal[]
+  documents Document[]
+  documentFolders DocumentFolder[]
+  invitations     Invitation[]        @relation("InvitationsForWorkspace")
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String         @db.ObjectId
+  userId      String         @db.ObjectId
+  role        WorkspaceRole  @default(MEMBER)
+  joinedAt    DateTime       @default(now())
+
+  // Relationships
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Invitation {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String
+  role         WorkspaceRole @default(MEMBER)
+  token        String   @unique
+  status       String   @default("PENDING") // PENDING, ACCEPTED, DECLINED, EXPIRED
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  invitedById  String   @db.ObjectId
+  workspaceId  String   @db.ObjectId
+
+  invitedBy    User      @relation("InvitationsByUser", fields: [invitedById], references: [id])
+  workspace    Workspace @relation("InvitationsForWorkspace", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+model Space {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  color       String?
+  private     Boolean  @default(false)
+  archived    Boolean  @default(false)
+  position    Int      @default(0)
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workspaceId String   @db.ObjectId
+  createdById String   @db.ObjectId
+
+  // Relationships
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("SpaceCreator", fields: [createdById], references: [id])
+  lists     List[]
+
+  @@map("spaces")
+}
+
+model List {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  color       String?
+  archived    Boolean  @default(false)
+  position    Int      @default(0)
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  spaceId     String   @db.ObjectId
+  createdById String   @db.ObjectId
+
+  // Relationships
+  space     Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("ListCreator", fields: [createdById], references: [id])
+  tasks     Task[]
+
+  @@map("lists")
+}
+
+model Task {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  status        TaskStatus   @default(TODO)
+  priority      TaskPriority @default(NORMAL)
+  startDate     DateTime?
+  dueDate       DateTime?
+  estimatedTime Int? // in minutes
+  actualTime    Int? // in minutes
+  progress      Int          @default(0)
+  tags          String[]
+  customFields  Json?
+  position      Int          @default(0)
+  archived      Boolean      @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  listId        String       @db.ObjectId
+  createdById   String       @db.ObjectId
+  assigneeId    String?      @db.ObjectId
+
+  // Relationships
+  list        List             @relation(fields: [listId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("TaskCreator", fields: [createdById], references: [id])
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+  shares      TaskShare[]
+  timeEntries TimeEntry[]
+  subtasks    Task[]           @relation("TaskSubtasks")
+  parentTask  Task?            @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentTaskId String?         @db.ObjectId
+  activities  Activity[]
+
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  taskId    String   @db.ObjectId
+  authorId  String   @db.ObjectId
+
+  // Relationships
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@map("task_comments")
+}
+
+model TaskAttachment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  url       String
+  size      Int?
+  type      String?
+  createdAt DateTime @default(now())
+  taskId    String   @db.ObjectId
+  uploadedById String @db.ObjectId
+
+  // Relationships
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@map("task_attachments")
+}
+
+model TaskShare {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  permission String  @default("view") // view, comment, edit
+  createdAt DateTime @default(now())
+  taskId    String   @db.ObjectId
+  sharedById String  @db.ObjectId
+  userId     String  @db.ObjectId
+
+  // Relationships
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  sharedBy User @relation("TaskSharesSharedBy", fields: [sharedById], references: [id])
+  user     User @relation("TaskSharesReceivedBy", fields: [userId], references: [id])
+
+  @@map("task_shares")
+  @@unique([taskId, userId])
+}
+
+model TimeEntry {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  description String?
+  duration    Int // in seconds
+  startTime   DateTime
+  endTime     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  taskId      String?   @db.ObjectId
+  userId      String    @db.ObjectId
+
+  // Relationships
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("time_entries")
+}
+
+model Goal {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  progress    Int        @default(0)
+  status      GoalStatus @default(ON_TRACK)
+  dueDate     DateTime?
+  keyResults  Json? // Array of key results
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  workspaceId String     @db.ObjectId
+  ownerId     String     @db.ObjectId
+
+  // Relationships
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User      @relation(fields: [ownerId], references: [id])
+
+  @@map("goals")
+}
+
+model DocumentFolder {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  path        String
+  color       String?
+  workspaceId String   @db.ObjectId
+  parentId    String?  @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String   @db.ObjectId
+
+  // Relationships
+  createdBy User       @relation(fields: [createdById], references: [id])
+  parent    DocumentFolder? @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  DocumentFolder[] @relation("FolderHierarchy")
+  documents Document[]
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("document_folders")
+}
+
+model Document {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  content     String
+  version     Int      @default(1)
+  isPublic    Boolean  @default(false)
+  starred     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  folderId    String?  @db.ObjectId
+  workspaceId String   @db.ObjectId
+  createdById String   @db.ObjectId
+
+  // Relationships
+  folder    DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdBy User            @relation(fields: [createdById], references: [id])
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model Notification {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+  userId    String           @db.ObjectId
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Activity {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String
+  message   String
+  data      Json?
+  createdAt DateTime @default(now())
+  userId    String   @db.ObjectId
+  taskId    String?  @db.ObjectId
+
+  // Relationships
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@map("activities")
+}
+
+// Global search index entries
+model SearchIndex {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  entityId    String   @unique
+  title       String
+  content     String
+  type        String
+  workspaceId String   @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("search_index")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  USER
+  GUEST
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum GoalStatus {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+  COMPLETED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  COMMENT_MENTION
+  DUE_DATE_REMINDER
+  PROJECT_INVITATION
+}
