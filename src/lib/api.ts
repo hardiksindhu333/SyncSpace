@@ -72,12 +72,16 @@ export async function fetchTasks(params?: {
   spaceId?: string;
   status?: string;
   assigneeId?: string;
+  createdById?: string;
+  watcherId?: string;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.listId) searchParams.append('listId', params.listId);
   if (params?.spaceId) searchParams.append('spaceId', params.spaceId);
   if (params?.status) searchParams.append('status', params.status);
   if (params?.assigneeId) searchParams.append('assigneeId', params.assigneeId);
+  if (params?.createdById) searchParams.append('createdById', params.createdById);
+  if (params?.watcherId) searchParams.append('watcherId', params.watcherId);
 
   const response = await fetch(`/api/tasks?${searchParams.toString()}`);
   if (!response.ok) {
@@ -341,6 +345,7 @@ export async function updateDocument(data: {
   content?: string;
   starred?: boolean;
   folderId?: string;
+  isPublic?: boolean;
 }) {
   const response = await fetch('/api/documents', {
     method: 'PATCH',
@@ -520,6 +525,7 @@ export async function updateGoal(data: {
   status?: string;
   progress?: number;
   dueDate?: string;
+  keyResults?: unknown;
 }) {
   const response = await fetch('/api/goals', {
     method: 'PATCH',
