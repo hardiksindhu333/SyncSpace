@@ -69,7 +69,7 @@ export function useSpaces(workspaceId?: string) {
 }
 
 export function useLists(spaceId?: string) {
-  const [lists, setLists] = useState([]);
+  const [lists, setLists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,7 +105,7 @@ export function useTasks(params?: {
   status?: string;
   assigneeId?: string;
 }) {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,7 +167,8 @@ export function useDocuments(params: {
   const [error, setError] = useState<string | null>(null);
 
   const loadDocuments = async () => {
-    if (!params.workspaceId) {
+    const workspaceId = params.workspaceId;
+    if (!workspaceId) {
       setDocuments([]);
       setLoading(false);
       return;
@@ -176,7 +177,7 @@ export function useDocuments(params: {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchDocuments(params);
+      const data = await fetchDocuments({ ...params, workspaceId });
       setDocuments(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load documents');
@@ -233,7 +234,8 @@ export function useGoals(params: {
   const [error, setError] = useState<string | null>(null);
 
   const loadGoals = async () => {
-    if (!params.workspaceId) {
+    const workspaceId = params.workspaceId;
+    if (!workspaceId) {
       setGoals([]);
       setLoading(false);
       return;
@@ -242,7 +244,7 @@ export function useGoals(params: {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchGoals(params);
+      const data = await fetchGoals({ ...params, workspaceId });
       setGoals(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load goals');
@@ -268,7 +270,8 @@ export function useAnalytics(params: {
   const [error, setError] = useState<string | null>(null);
 
   const loadAnalytics = async () => {
-    if (!params.workspaceId) {
+    const workspaceId = params.workspaceId;
+    if (!workspaceId) {
       setAnalytics(null);
       setLoading(false);
       return;
@@ -277,7 +280,7 @@ export function useAnalytics(params: {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchAnalytics(params);
+      const data = await fetchAnalytics({ ...params, workspaceId });
       setAnalytics(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics');
