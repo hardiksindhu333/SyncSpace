@@ -16,7 +16,7 @@ import {
   endOfMonth
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, User, Clock, Calendar as CalendarIcon, Filter } from 'lucide-react';
-import TaskModal from '../ui/TaskModal';
+import WorkingTaskModal from '../ui/WorkingTaskModal';
 
 interface Task {
   id: string;
@@ -420,7 +420,7 @@ const ClickUpTimeline: React.FC = () => {
 
       {/* Task Modal */}
       {showTaskModal && selectedTask && (
-        <TaskModal
+        <WorkingTaskModal
           task={selectedTask}
           isOpen={showTaskModal}
           onClose={() => {
